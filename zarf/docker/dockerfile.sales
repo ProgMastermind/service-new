@@ -1,0 +1,29 @@
+# Build the Go Binary.
+FROM golang:1.23 AS build_sales
+ENV CGO_ENABLED=0
+ARG BUILD_REF
+
+# Copy the source code into the container.
+COPY . /service
+
+# Build the service library 
+WORKDIR /service/apis/services/sales 
+# In the build stage 
+RUN go build -ldflags "-X main.build=${BUILD_REF}" 
+# main.build is a build variable which is present in main module 
+
+# Run the Go Binary in Alpine 
+FROM alpine:3.20
+ARG BUILD_DATE 
+ARG BUILD_REF
+# Adding for the security purposes , in order to make sure that 
+# it will run as non-root user 
+RUN addgroup -g 1000 -S sales && \
+    adduser -u 1000 -h /service -G sales -S sales
+#In the final stage
+# extra sales here is the executable when you build in the first stage 
+# and you are copying only the executable to final image 
+COPY --from=build_sales --chown=sales:sales /service/apis/services/sales/sales/ /service/sales
+WORKDIR /service
+USER sales 
+CMD ["./sales"]
